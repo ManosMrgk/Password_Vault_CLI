@@ -1,12 +1,13 @@
 import json
 import os
-from time import sleep
 from secrets import token_urlsafe
-from cryptography.fernet import Fernet
+from time import sleep
+
+from cryptography.fernet import Fernet,InvalidToken
 
 
 def print_menu():
-        print(r"""
+    print(r"""
  ____                                     _   __  __                                   
 |  _ \ __ _ ___ _____      _____  _ __ __| | |  \/  | __ _ _ __   __ _  __ _  ___ _ __ 
 | |_) / _` / __/ __\ \ /\ / / _ \| '__/ _` | | |\/| |/ _` | '_ \ / _` |/ _` |/ _ \ '__|
@@ -23,7 +24,8 @@ def choose_an_option():
     print("    3) Update a password")
     print("    4) Show all stored passwords")
     print("    5) Delete a stored password")
-    print("    6) Quit")
+    print("    6) Change the vault's password")
+    print("    7) Quit")
     return input("    Choose on of the above options:")
 
 
@@ -52,7 +54,7 @@ def add_password():
         want_suggestion = input("    Enter yes or no:")
     if want_suggestion == "yes":
         custom_password = token_urlsafe(9)
-        print("    Setting this randomly generated password as the new password:"+custom_password)
+        print("    Setting this randomly generated password as the new password:" + custom_password)
         password = custom_password
     else:
         password = input("    Enter the password of the account to add:")
@@ -100,7 +102,7 @@ def update_password():
                     want_suggestion = input("    Enter yes or no:")
                 if want_suggestion == "yes":
                     custom_password = token_urlsafe(9)
-                    print("    Setting this randomly generated password as the new password:"+custom_password)
+                    print("    Setting this randomly generated password as the new password:" + custom_password)
                     passwords[i]["password"] = custom_password
                 else:
                     new_pass = input("    Enter the new password:")
@@ -147,20 +149,28 @@ def show_stored_passwords():
             print("\n**********************************************************************\n")
 
 
-def quit_the_app():
+def save_changes(pass_phrase, vault_part):
+    print("Pass phrase:", pass_phrase)
+    encrypted_passwords = []
     for i in range(len(passwords)):
-        passwords[i] = encrypt_password(passwords[i], full_pass_phrase)
+        encrypted_passwords.append(encrypt_password(passwords[i], pass_phrase))
 
     vault = {
-        "User_part": Fernet(full_pass_phrase.encode()).encrypt(user_part.encode()).decode(),
+        "User_part": Fernet(pass_phrase.encode()).encrypt(user_part.encode()).decode(),
         "Vault_part": vault_part,
-        "Passwords": passwords
+        "Passwords": encrypted_passwords
     }
     with open('password_vault.vault', 'w') as json_file:
         json.dump(vault, json_file, sort_keys=True, indent=4)
     print("\n**********************************************************************\n")
     print("    Your changes have been saved successfully.")
     print("\n**********************************************************************\n")
+
+
+def quit_the_app():
+    global full_pass_phrase
+    global vault_part
+    save_changes(full_pass_phrase, vault_part)
     input("    Press Enter to exit the vault...")
     quit()
 
@@ -175,8 +185,10 @@ def auth_vault(user_part):
         if len(recreated_key) != 44:
             print("    Validation failed. Wrong password.")
             return None
-
-        recreated_user_part = Fernet(recreated_key.encode()).decrypt(encrypted_user_part.encode()).decode()
+        try:
+            recreated_user_part = Fernet(recreated_key.encode()).decrypt(encrypted_user_part.encode()).decode()
+        except InvalidToken:
+            recreated_user_part = None
         if recreated_user_part == user_part:
             print("    Validation completed successfully.")
             return recreated_key
@@ -188,9 +200,26 @@ def auth_vault(user_part):
         return None
 
 
+def generate_password():
+    pass_bytes = Fernet.generate_key()
+    pass_phrase = pass_bytes.decode()
+    size = int(input("    Choose how long you want your password-vault's password to be [7 - 44]:"))
+    while size < 7 or size > 44:
+        print("    Choose how long you want your password-vault's password to be.")
+        size = int(input("    You have to choose a number between 7 and 44:"))
+    user_part = pass_phrase[:size]
+    vault_part = pass_phrase[size:]
+    passwords = []
+
+    print("    Your random generated code:", pass_phrase[:size])
+    print("    DO NOT lose it or else you will not be able to recover your password-vault.")
+    return pass_bytes, user_part, vault_part
+
+
 def load_vault():
     passwords = None
     vault_part = None
+    global user_part
     if os.path.isfile('password_vault.vault'):
         with open('password_vault.vault', 'r') as json_file:
             passwords = []
@@ -200,36 +229,28 @@ def load_vault():
 
     if passwords is None:
         print("    You have no password-vault file in this directory. Making a new password-vault..")
-        pass_bytes = Fernet.generate_key()
-        full_pass_phrase = pass_bytes.decode()
-        size = int(input("    Choose how long you want your password-vault's password to be [7 - 44]:"))
-        while size < 7 or size > 44:
-            print("    Choose how long you want your password-vault's password to be.")
-            size = int(input("    You have to choose a number between 7 and 44:"))
-        user_part = full_pass_phrase[:size]
-        vault_part = full_pass_phrase[size:]
-        passwords = []
+        pass_bytes, user_part, vault_part = generate_password()
         encoded_user_part = Fernet(pass_bytes).encrypt(user_part.encode()).decode()
-        print(encoded_user_part)
-        print("    Your random generated code:", full_pass_phrase[:size])
-        print("    DO NOT lose it or else you will not be able to recover your password-vault.")
+        # print(encoded_user_part)
+        passwords = []
         vault = {
             "User_part": encoded_user_part,
             "Vault_part": vault_part,
-            "Passwords": []
+            "Passwords": passwords
         }
+        pass_phrase = user_part + vault_part
         with open('password_vault.vault', 'w') as json_file:
             json.dump(vault, json_file, sort_keys=True, indent=4)
         print("    Your vault has been created successfully.")
     else:
         user_part = input("----Enter your vault password:")
         print("\n**********************************************************************\n")
-        full_pass_phrase = auth_vault(user_part)
+        pass_phrase = auth_vault(user_part)
         print("\n**********************************************************************\n")
-        if full_pass_phrase is not None:
+        if pass_phrase is not None:
             for i in range(len(passwords)):
-                passwords[i] = decrypt_password(passwords[i], full_pass_phrase)
-    return passwords, vault_part, user_part, full_pass_phrase
+                passwords[i] = decrypt_password(passwords[i], pass_phrase)
+    return passwords, vault_part, user_part, pass_phrase
 
 
 def delete_a_password():
@@ -253,6 +274,47 @@ def delete_a_password():
     print("\n**********************************************************************\n")
 
 
+def change_vault_password():
+    print("\n**********************************************************************\n")
+    current_user_part = input("    Enter the current password:")
+    global user_part, full_pass_phrase, vault_part
+    if current_user_part == user_part:
+        sure = input("    Are you sure you want to change the password? [yes or no]:")
+        while sure != "yes" and sure != "no":
+            sure = input("    Enter yes or no to select an option:")
+        if sure == "yes":
+            print("    You can set a new secure random password [option 1] or choose one on your own [ option 2].")
+            pass_option = input("    Choose between the two options above [1 or 2]:")
+            while pass_option != "1" and pass_option != "2":
+                pass_option = input("    Enter 1 or 2 to select an option:")
+            if pass_option == "1":
+                pass_bytes, user_part, vault_part = generate_password()
+                full_pass_phrase = user_part+vault_part
+
+            else:
+                new_user_part = input("    Enter the new password [at least 7 characters]:")
+                while len(new_user_part) < 7 or len(new_user_part) > 44:
+                    print("    The new password must be between 7 and 44 characters long. ")
+                    new_user_part = input("    Enter the new password:")
+                pass_bytes = Fernet.generate_key()
+                random_pass_phrase = pass_bytes.decode()
+                user_part = new_user_part
+                size = len(user_part)
+                vault_part = random_pass_phrase[size:]
+                full_pass_phrase = user_part + vault_part
+            save_changes(full_pass_phrase, vault_part)
+            print(full_pass_phrase)
+        else:
+            print("Password update cancelled.")
+            print("\n**********************************************************************\n")
+    else:
+        print("Wrong password.")
+        print("\n**********************************************************************\n")
+
+
+global passwords, vault_part, user_part, full_pass_phrase
+
+
 def main():
     option_dict = {
         "1": search_passwords,
@@ -260,7 +322,8 @@ def main():
         "3": update_password,
         "4": show_stored_passwords,
         "5": delete_a_password,
-        "6": quit_the_app
+        "6": change_vault_password,
+        "7": quit_the_app
     }
     print_menu()
     global passwords, vault_part, user_part, full_pass_phrase
