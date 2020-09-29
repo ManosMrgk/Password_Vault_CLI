@@ -3,20 +3,17 @@ import os
 from time import sleep
 from secrets import token_urlsafe
 from cryptography.fernet import Fernet
-try:
-    from pyfiglet import Figlet
-except ImportError:
-    Figlet = None
 
 
 def print_menu():
-    if Figlet is not None:
-        f = Figlet(width=100)
-        print(f.renderText('Password Manager'))
-    else:
-        print("\n**********************************************************************")
-        print("*                          Password Manager                          *")
-        print("**********************************************************************\n")
+        print(r"""
+ ____                                     _   __  __                                   
+|  _ \ __ _ ___ _____      _____  _ __ __| | |  \/  | __ _ _ __   __ _  __ _  ___ _ __ 
+| |_) / _` / __/ __\ \ /\ / / _ \| '__/ _` | | |\/| |/ _` | '_ \ / _` |/ _` |/ _ \ '__|
+|  __/ (_| \__ \__ \\ V  V / (_) | | | (_| | | |  | | (_| | | | | (_| | (_| |  __/ |   
+|_|   \__,_|___/___/ \_/\_/ \___/|_|  \__,_| |_|  |_|\__,_|_| |_|\__,_|\__, |\___|_|   
+                                                                        |___/           
+        """)
 
 
 def choose_an_option():
@@ -74,7 +71,7 @@ def add_password():
                 passwords[i] = new_pass
             else:
                 print("    The password was not changed.")
-                
+
     if not pre_existing:
         password_json = {
             "site/app": site,
@@ -166,7 +163,6 @@ def quit_the_app():
     print("\n**********************************************************************\n")
     input("    Press Enter to exit the vault...")
     quit()
-
 
 
 def auth_vault(user_part):
