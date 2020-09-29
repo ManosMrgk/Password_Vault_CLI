@@ -74,6 +74,7 @@ def add_password():
                 passwords[i] = new_pass
             else:
                 print("    The password was not changed.")
+                
     if not pre_existing:
         password_json = {
             "site/app": site,
@@ -158,7 +159,7 @@ def quit_the_app():
         "Vault_part": vault_part,
         "Passwords": passwords
     }
-    with open('password_vault.json', 'w') as json_file:
+    with open('password_vault.vault', 'w') as json_file:
         json.dump(vault, json_file, sort_keys=True, indent=4)
     print("\n**********************************************************************\n")
     print("    Your changes have been saved successfully.")
@@ -169,8 +170,8 @@ def quit_the_app():
 
 
 def auth_vault(user_part):
-    if os.path.isfile('password_vault.json'):
-        with open('password_vault.json', 'r') as json_file:
+    if os.path.isfile('password_vault.vault'):
+        with open('password_vault.vault', 'r') as json_file:
             data = json.load(json_file)
             loaded_vault_part = data['Vault_part']
             encrypted_user_part = data['User_part']
@@ -194,8 +195,8 @@ def auth_vault(user_part):
 def load_vault():
     passwords = None
     vault_part = None
-    if os.path.isfile('password_vault.json'):
-        with open('password_vault.json', 'r') as json_file:
+    if os.path.isfile('password_vault.vault'):
+        with open('password_vault.vault', 'r') as json_file:
             passwords = []
             data = json.load(json_file)
             passwords = data['Passwords']
@@ -211,6 +212,7 @@ def load_vault():
             size = int(input("    You have to choose a number between 7 and 44:"))
         user_part = full_pass_phrase[:size]
         vault_part = full_pass_phrase[size:]
+        passwords = []
         encoded_user_part = Fernet(pass_bytes).encrypt(user_part.encode()).decode()
         print(encoded_user_part)
         print("    Your random generated code:", full_pass_phrase[:size])
@@ -220,7 +222,7 @@ def load_vault():
             "Vault_part": vault_part,
             "Passwords": []
         }
-        with open('password_vault.json', 'w') as json_file:
+        with open('password_vault.vault', 'w') as json_file:
             json.dump(vault, json_file, sort_keys=True, indent=4)
         print("    Your vault has been created successfully.")
     else:
