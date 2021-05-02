@@ -16,4 +16,4 @@
     The longer the part you choose to memorise the safer your vault is against brute forcing. 
 
 # DISCLAIMER
-    This program was made as a part of a Python exercise for my students and is not by any means a replacement for a password manager.
+    This program was made as part of a Python exercise for my students and is not by any means a replacement for a password manager.
